@@ -1,0 +1,1411 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[hidelinks]{hyperref}
+
+\newtheorem{definition}{Definition}[section]
+\newtheorem{lemma}[definition]{Lemma}
+\newtheorem{proposition}[definition]{Proposition}
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{remark}[definition]{Remark}
+\newtheorem{convention}[definition]{Convention}
+
+\newcommand{\R}{R}
+\newcommand{\Sfam}{\mathcal S}
+\newcommand{\pow}[1]{R^{#1}}
+\newcommand{\Graph}{\operatorname{Graph}}
+\newcommand{\Imf}{\operatorname{Im}}
+\newcommand{\pr}{\operatorname{pr}}
+\newcommand{\dom}{\operatorname{dom}}
+\newcommand{\LC}{\operatorname{LC}}
+\newcommand{\Cont}{\operatorname{Cont}}
+\newcommand{\LInc}{\operatorname{LInc}}
+\newcommand{\LDec}{\operatorname{LDec}}
+\newcommand{\val}{\operatorname{val}}
+\newcommand{\nhd}{\operatorname{nhd}}
+\newcommand{\core}{\operatorname{core}}
+\newcommand{\cat}{\mathbin{{}^\frown}}
+\newcommand{\Lean}[1]{\texttt{#1}}
+
+\title{Detailed mathematical write-up of the Lean formalisation\\
+O-minimal structures, definable maps, images, and local properties}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Purpose and high-level structure}
+
+This document explains the Lean development in mathematical language.  The Lean file builds an
+axiomatic version of an o-minimal structure over a densely ordered set, defines definable sets and
+definable functions, proves that several set-theoretic constructions preserve definability, and then
+uses these constructions to show that certain loci of one-variable definable functions are definable.
+
+The additional result added to the Lean file is the following standard theorem.
+
+\begin{theorem}[Image of a definable function]
+Let $M$ be an o-minimal structure on a densely ordered set $R$.  Let
+\[
+  A\subseteq R^m,
+  \qquad
+  B\subseteq R^n,
+\]
+and let
+\[
+  f:A\to B
+\]
+be a definable function.  Then
+\[
+  \Imf(f)=\{y\in R^n: \exists x\in A,\; y=f(x)\}
+\]
+is a definable subset of $R^n$.  Moreover,
+\[
+  \Imf(f)\subseteq B.
+\]
+\end{theorem}
+
+The proof of this theorem does not use the special one-dimensional o-minimality axiom.  It only uses
+the closure of definable sets under coordinate reindexing and existential projection.  This matches
+the Lean proof: the graph of $f$ is reindexed from coordinates $(x,y)$ to coordinates $(y,x)$ and then
+projected onto the $y$-coordinates.
+
+\section{Tuples, coordinates, and basic set operations}
+
+\subsection{Tuple spaces}
+
+For each natural number $n$, the Lean file writes
+\[
+  \Lean{Power R n}
+\]
+for the type of $n$-tuples of elements of $R$.  Formally this is implemented as
+\[
+  \operatorname{Fin}(n)\to R.
+\]
+This representation is convenient in Lean because coordinates are indexed by the finite type
+$\operatorname{Fin}(n)$.
+
+Mathematically, we write
+\[
+  \Lean{Power R n}=R^n.
+\]
+If $x\in R^n$, then $x_i$ denotes the $i$-th coordinate of $x$.
+
+\subsection{Concatenation and block projections}
+
+If
+\[
+  x\in R^n,
+  \qquad
+  y\in R^m,
+\]
+then their concatenation is written
+\[
+  x\cat y\in R^{n+m}.
+\]
+In Lean this is
+\[
+  \Lean{Power.append x y}.
+\]
+
+If $z\in R^{n+m}$, then the left and right blocks are denoted by
+\[
+  z_L\in R^n,
+  \qquad
+  z_R\in R^m.
+\]
+In Lean these are
+\[
+  \Lean{Power.left z},
+  \qquad
+  \Lean{Power.right z}.
+\]
+They satisfy the expected identities
+\[
+  (x\cat y)_L=x,
+  \qquad
+  (x\cat y)_R=y.
+\]
+These are the Lean simp lemmas
+\[
+  \Lean{Power.left\_append},
+  \qquad
+  \Lean{Power.right\_append}.
+\]
+
+\subsection{Basic Boolean operations on sets}
+
+A set in Lean is represented as a predicate.  Thus a subset $A\subseteq R^n$ is implemented as
+\[
+  \Lean{Set (Power R n)}.
+\]
+The file defines the following elementary set operations directly as predicates:
+\[
+\begin{aligned}
+  \Lean{setEmpty} &= \emptyset,\\
+  \Lean{setUnion A B} &= A\cup B,\\
+  \Lean{setInter A B} &= A\cap B,\\
+  \Lean{setCompl A} &= (R^n\setminus A).
+\end{aligned}
+\]
+For example,
+\[
+  (\Lean{setInter A B})(x)
+  \quad\Longleftrightarrow\quad
+  A(x)\land B(x).
+\]
+
+\section{The ordered base set}
+
+\begin{definition}[Dense linear order without endpoints]
+A dense linear order without endpoints consists of a type $R$ together with a binary relation $<$ such
+that the following properties hold.
+\begin{enumerate}[label=(\roman*)]
+  \item Irreflexivity: $\neg(x<x)$ for every $x\in R$.
+  \item Transitivity: if $x<y$ and $y<z$, then $x<z$.
+  \item Trichotomy: for all $x,y\in R$, exactly one of $x<y$, $x=y$, or $y<x$ holds.
+  \item Density: if $x<y$, then there exists $z\in R$ such that $x<z<y$.
+  \item No left endpoint: for every $x\in R$, there exists $y\in R$ such that $y<x$.
+  \item No right endpoint: for every $x\in R$, there exists $z\in R$ such that $x<z$.
+\end{enumerate}
+In Lean this is the structure
+\[
+  \Lean{DenseLinearOrderNoEndpoints}.
+\]
+\end{definition}
+
+The Lean development does not use the full power of an imported order typeclass.  Instead, the order
+relation and the required axioms are packaged manually in the structure above.  This keeps the
+formalisation self-contained.
+
+\section{Intervals and the one-dimensional o-minimality axiom}
+
+\subsection{Endpoints}
+
+To state intervals uniformly, the Lean file introduces an endpoint type
+\[
+  R\cup\{-\infty,+\infty\}.
+\]
+In Lean this is the inductive type
+\[
+  \Lean{Endpoint R},
+\]
+with constructors
+\[
+  \Lean{Endpoint.negInf},
+  \qquad
+  \Lean{Endpoint.finite a},
+  \qquad
+  \Lean{Endpoint.posInf}.
+\]
+The endpoint order is the obvious extension of the order on $R$:
+\[
+  -\infty<a<+\infty
+\]
+for every finite $a\in R$.
+
+\subsection{Points and intervals}
+
+For $a\in R$, the singleton $\{a\}\subseteq R$ is represented as a subset of $R^1$:
+\[
+  \Lean{pointSet a}=\bigl\{x\in R^1:x_0=a\bigr\}.
+\]
+
+For endpoints $a,b\in R\cup\{-\infty,+\infty\}$, the open interval is
+\[
+  (a,b)=\{x\in R:a<x<b\},
+\]
+with the usual interpretation when one endpoint is infinite.  In Lean this is
+\[
+  \Lean{openInterval D a b}.
+\]
+
+\begin{definition}[Finite unions of points and intervals]
+A subset $A\subseteq R$ is a finite union of points and intervals if it belongs to the smallest class
+containing:
+\begin{enumerate}[label=(\roman*)]
+  \item the empty set;
+  \item every singleton $\{a\}$;
+  \item every open interval $(a,b)$, with possibly infinite endpoints;
+  \item the union of two members of the class.
+\end{enumerate}
+In Lean this is the inductive predicate
+\[
+  \Lean{FiniteUnionOfPointsAndIntervals D A}.
+\]
+\end{definition}
+
+\section{O-minimal structures in the Lean file}
+
+\begin{definition}[Axiomatic o-minimal structure]
+Let $(R,<)$ be a dense linear order without endpoints.  An o-minimal structure on $R$, as formalised
+in the Lean file, consists of a family
+\[
+  \Sfam_n\subseteq \mathcal P(R^n),
+  \qquad n=0,1,2,\ldots,
+\]
+satisfying the following closure and definability axioms.
+\begin{enumerate}[label=(\roman*)]
+  \item Empty sets are definable:
+  \[
+    \emptyset\in\Sfam_n.
+  \]
+  \item Definable sets are closed under finite unions:
+  \[
+    A,B\in\Sfam_n\quad\Longrightarrow\quad A\cup B\in\Sfam_n.
+  \]
+  \item Definable sets are closed under finite intersections:
+  \[
+    A,B\in\Sfam_n\quad\Longrightarrow\quad A\cap B\in\Sfam_n.
+  \]
+  \item Definable sets are closed under complements:
+  \[
+    A\in\Sfam_n\quad\Longrightarrow\quad R^n\setminus A\in\Sfam_n.
+  \]
+  \item Diagonals are definable: for $i<j<n$,
+  \[
+    \{x\in R^n:x_i=x_j\}\in\Sfam_n.
+  \]
+  \item Products are definable: if $A\in\Sfam_n$ and $B\in\Sfam_m$, then
+  \[
+    A\times B
+    =\{z\in R^{n+m}:z_L\in A\text{ and }z_R\in B\}
+    \in\Sfam_{n+m}.
+  \]
+  \item One-coordinate projections are definable: if $A\in\Sfam_{n+1}$, then deleting any one
+  coordinate gives a set in $\Sfam_n$.
+  \item Coordinate reindexing preserves definability: if $A\in\Sfam_n$ and
+  $\sigma:\operatorname{Fin}(n)\to\operatorname{Fin}(m)$, then
+  \[
+    \{x\in R^m:(x_{\sigma(0)},\ldots,x_{\sigma(n-1)})\in A\}
+    \in\Sfam_m.
+  \]
+  \item Block existential projection preserves definability: if $A\in\Sfam_{n+m}$, then
+  \[
+    \{x\in R^n:\exists y\in R^m,\;x\cat y\in A\}
+    \in\Sfam_n.
+  \]
+  \item The order relation is definable:
+  \[
+    \{(x,y)\in R^2:x<y\}
+    \in\Sfam_2.
+  \]
+  \item O-minimality in dimension one:
+  \[
+    A\in\Sfam_1
+    \quad\Longleftrightarrow\quad
+    A\text{ is a finite union of points and intervals.}
+  \]
+\end{enumerate}
+In Lean this structure is called
+\[
+  \Lean{OMinimalStructure}.
+\]
+\end{definition}
+
+\begin{remark}
+In many textbook treatments, some of the closure properties above are derived from a smaller list of
+axioms.  In the Lean file they are included explicitly.  This is not a mathematical restriction; it is
+a practical choice that avoids lengthy low-level proofs about finite coordinates.
+\end{remark}
+
+\begin{definition}[Definable set]
+Let $M$ be an o-minimal structure.  A subset $A\subseteq R^n$ is called definable if
+\[
+  A\in\Sfam_n.
+\]
+In Lean this is abbreviated by
+\[
+  \Lean{Definable M A}.
+\]
+\end{definition}
+
+\section{Definable functions}
+
+\subsection{Graphs}
+
+Let
+\[
+  A\subseteq R^m,
+  \qquad
+  B\subseteq R^n.
+\]
+A function $f:A\to B$ is represented in Lean as a function between subtype spaces:
+\[
+  f:
+  \{x:R^m\mid A(x)\}
+  \longrightarrow
+  \{y:R^n\mid B(y)\}.
+\]
+Thus an input is not merely a tuple $x\in R^m$, but a pair consisting of $x$ and a proof that
+$x\in A$.  Likewise, the output contains both the value $f(x)$ and a proof that this value belongs to
+$B$.
+
+The graph of $f$ is a subset of $R^{m+n}$:
+\[
+  \Graph(f)=\{(x,y)\in R^m\times R^n:x\in A\text{ and }y=f(x)\}.
+\]
+In terms of concatenated tuples, if $z\in R^{m+n}$, then
+\[
+  z\in\Graph(f)
+  \quad\Longleftrightarrow\quad
+  \exists h:A(z_L),\; z_R=f(z_L,h).
+\]
+This is the Lean definition
+\[
+  \Lean{FunctionGraph}.
+\]
+
+\begin{definition}[Definable function]
+A function $f:A\to B$ is definable if
+\begin{enumerate}[label=(\roman*)]
+  \item $A\in\Sfam_m$;
+  \item $B\in\Sfam_n$;
+  \item $\Graph(f)\in\Sfam_{m+n}$.
+\end{enumerate}
+In Lean this bundled object is
+\[
+  \Lean{DefinableFunction M A B}.
+\]
+It contains the fields
+\[
+  \Lean{domain\_mem},\qquad
+  \Lean{codomain\_mem},\qquad
+  \Lean{toFun},\qquad
+  \Lean{graph\_mem}.
+\]
+\end{definition}
+
+\section{Images of definable functions}
+
+This is the new part added to the Lean file.
+
+\subsection{The image set}
+
+Let
+\[
+  f:A\to B
+\]
+be represented as a Lean function
+\[
+  f:
+  \{x:R^m\mid A(x)\}
+  \longrightarrow
+  \{y:R^n\mid B(y)\}.
+\]
+The image of $f$ is the subset of $R^n$ defined by
+\[
+  \Imf(f)=\{y\in R^n:\exists x\in R^m,\exists h:A(x),\;y=f(x,h)\}.
+\]
+In Lean this is
+\[
+  \Lean{FunctionImage f}.
+\]
+Written in ordinary mathematical notation, this is simply
+\[
+  \Imf(f)=\{y\in R^n:\exists x\in A,\, y=f(x)\}.
+\]
+
+\begin{lemma}[The image is contained in the codomain]
+For any function $f:A\to B$,
+\[
+  \Imf(f)\subseteq B.
+\]
+\end{lemma}
+
+\begin{proof}
+Let $y\in\Imf(f)$.  By definition of the image, there exist $x\in R^m$ and a proof $h:A(x)$ such
+that
+\[
+  y=f(x,h).
+\]
+Since the codomain of $f$ is the subtype $\{y:R^n\mid B(y)\}$, the output $f(x,h)$ comes with a proof
+that its underlying tuple belongs to $B$.  Therefore $y\in B$.
+\end{proof}
+
+This is the Lean theorem
+\[
+  \Lean{functionImage\_subset\_codomain}.
+\]
+
+\subsection{Why a coordinate swap is needed}
+
+The graph $\Graph(f)$ is stored in coordinates
+\[
+  (x,y)\in R^{m+n}.
+\]
+However, the image is obtained by keeping the $y$-coordinates and existentially quantifying over the
+$x$-coordinates:
+\[
+  y\in\Imf(f)
+  \quad\Longleftrightarrow\quad
+  \exists x\in R^m,
+  \;(x,y)
+  \in\Graph(f).
+\]
+
+The available block projection axiom in the Lean file has the form
+\[
+  C\in\Sfam_{n+m}
+  \quad\Longrightarrow\quad
+  \{y\in R^n:\exists x\in R^m,\; y\cat x\in C\}
+  \in\Sfam_n.
+\]
+Thus it projects away the last block.  Since $\Graph(f)$ is in the order $(x,y)$, we first reindex it
+into the order $(y,x)$.
+
+Define the block-swap map
+\[
+  s:R^{n+m}\to R^{m+n}
+\]
+by
+\[
+  s(y,x)=(x,y).
+\]
+In the Lean file this is implemented by two definitions:
+\[
+  \Lean{imageGraphIndex},
+  \qquad
+  \Lean{imageGraphArg}.
+\]
+The theorem
+\[
+  \Lean{imageGraphArg\_append}
+\]
+formalises the identity
+\[
+  s(y\cat x)=x\cat y.
+\]
+
+\subsection{Definability of the image}
+
+\begin{theorem}[Definability of images]
+Let $M$ be an o-minimal structure.  Let
+\[
+  A\subseteq R^m,
+  \qquad
+  B\subseteq R^n,
+\]
+and let
+\[
+  f:A\to B
+\]
+be a definable function.  Then
+\[
+  \Imf(f)\in\Sfam_n.
+\]
+Equivalently, the image of a definable function is definable.
+\end{theorem}
+
+\begin{proof}
+Since $f$ is definable, its graph is definable:
+\[
+  \Graph(f)
+  \in
+  \Sfam_{m+n}.
+\]
+
+Define the swapped graph
+\[
+  \Graph(f)^{\mathrm{sw}}
+  \subseteq
+  R^{n+m}
+\]
+by
+\[
+  (y,x)
+  \in
+  \Graph(f)^{\mathrm{sw}}
+  \quad\Longleftrightarrow\quad
+  (x,y)
+  \in
+  \Graph(f).
+\]
+Equivalently,
+\[
+  \Graph(f)^{\mathrm{sw}}
+  =s^{-1}(\Graph(f)),
+\]
+where $s(y,x)=(x,y)$ is the block-swap map.
+
+Because coordinate reindexing preserves definability and $\Graph(f)$ is definable, we have
+\[
+  \Graph(f)^{\mathrm{sw}}
+  \in
+  \Sfam_{n+m}.
+\]
+
+Now apply block existential projection to the last $m$ coordinates.  We obtain the definable set
+\[
+  P
+  =
+  \{y\in R^n:\exists x\in R^m,
+  \;(y,x)
+  \in
+  \Graph(f)^{\mathrm{sw}}
+  \}
+  \in
+  \Sfam_n.
+\]
+By the definition of the swapped graph,
+\[
+\begin{aligned}
+  y\in P
+  &\Longleftrightarrow
+  \exists x\in R^m,
+  \;(y,x)
+  \in
+  \Graph(f)^{\mathrm{sw}} \\
+  &\Longleftrightarrow
+  \exists x\in R^m,
+  \;(x,y)
+  \in
+  \Graph(f) \\
+  &\Longleftrightarrow
+  \exists x\in A,
+  \;y=f(x) \\
+  &\Longleftrightarrow
+  y\in\Imf(f).
+\end{aligned}
+\]
+Therefore $P=\Imf(f)$, and since $P$ is definable, $\Imf(f)$ is definable.
+\end{proof}
+
+In Lean the graph-only version is
+\[
+  \Lean{functionImage\_mem\_of\_graph\_mem}.
+\]
+The bundled version for a \Lean{DefinableFunction} is
+\[
+  \Lean{functionImage\_mem}.
+\]
+The named image of a bundled definable function is
+\[
+  \Lean{DefinableFunction.image},
+\]
+and the two final bundled theorems are
+\[
+  \Lean{DefinableFunction.image\_mem},
+  \qquad
+  \Lean{DefinableFunction.image\_subset\_codomain}.
+\]
+
+\begin{remark}
+The assumptions that $A$ and $B$ are definable are included in the bundled notion of
+\Lean{DefinableFunction}.  The image-definability proof itself uses only definability of the graph.
+The codomain inclusion uses only the fact that the output type is the subtype $B$.
+\end{remark}
+
+\section{Composition of definable functions}
+
+\subsection{Relational composition}
+
+Let
+\[
+  G\subseteq R^{a+b},
+  \qquad
+  H\subseteq R^{b+c}
+\]
+be definable relations.  Their relational composition is
+\[
+  H\circ G
+  =
+  \{(x,z)\in R^{a+c}:\exists y\in R^b,
+  \;(x,y)\in G\text{ and }(y,z)\in H\}.
+\]
+In Lean this relation is
+\[
+  \Lean{RelationComp G H}.
+\]
+
+\begin{lemma}[Relational composition preserves definability]
+If
+\[
+  G\in\Sfam_{a+b}
+  \qquad\text{and}\qquad
+  H\in\Sfam_{b+c},
+\]
+then
+\[
+  H\circ G\in\Sfam_{a+c}.
+\]
+\end{lemma}
+
+\begin{proof}
+Work in the larger coordinate space
+\[
+  R^{(a+c)+b}.
+\]
+We write a point of this space as
+\[
+  (x,z,y),
+\]
+where
+\[
+  x\in R^a,
+  \qquad
+  z\in R^c,
+  \qquad
+  y\in R^b.
+\]
+
+Using coordinate reindexing, define the two sets
+\[
+  G'=\bigl\{(x,z,y):(x,y)
+  \in G\bigr\},
+\]
+and
+\[
+  H'=\bigl\{(x,z,y):(y,z)
+  \in H\bigr\}.
+\]
+Since $G$ and $H$ are definable and reindexing preserves definability, both $G'$ and $H'$ are
+definable.  Therefore
+\[
+  G'\cap H'
+\]
+is definable.
+
+Project away the final block $y\in R^b$.  The resulting set is
+\[
+  \{(x,z):\exists y,
+  \;(x,y)\in G
+  \text{ and }
+  (y,z)
+  \in H\},
+\]
+which is exactly $H\circ G$.  Hence $H\circ G$ is definable.
+\end{proof}
+
+The Lean proof is
+\[
+  \Lean{relation\_comp\_mem}.
+\]
+The auxiliary definitions
+\[
+  \Lean{compGIndex},\quad
+  \Lean{compHIndex},\quad
+  \Lean{compGArg},\quad
+  \Lean{compHArg}
+\]
+encode the coordinate reindexings needed to read $(x,y)$ and $(y,z)$ from the larger tuple
+$(x,z,y)$.
+
+\subsection{Composition of functions}
+
+\begin{proposition}[Composition of definable functions]
+Let
+\[
+  f:A\to B,
+  \qquad
+  g:B\to C
+\]
+be definable functions.  Then
+\[
+  g\circ f:A\to C
+\]
+is definable.
+\end{proposition}
+
+\begin{proof}
+The domain of $g\circ f$ is $A$, which is definable because $f$ is a definable function.  The codomain
+is $C$, which is definable because $g$ is a definable function.
+
+It remains to prove that the graph is definable.  For $x\in A$ and $z\in C$,
+\[
+  (x,z)\in\Graph(g\circ f)
+\]
+if and only if there exists $y\in B$ such that
+\[
+  (x,y)\in\Graph(f)
+  \qquad\text{and}\qquad
+  (y,z)\in\Graph(g).
+\]
+Thus
+\[
+  \Graph(g\circ f)
+  =
+  \Graph(g)\circ\Graph(f).
+\]
+The right hand side is definable by relational composition.  Hence $g\circ f$ is definable.
+\end{proof}
+
+The Lean equality relating relational composition of graphs to the graph of the composed function is
+\[
+  \Lean{relationComp\_functionGraph\_eq}.
+\]
+The bundled composition theorem is
+\[
+  \Lean{DefinableFunction.comp}.
+\]
+
+\section{Reusable definability devices for local properties}
+
+The second half of the Lean file proves definability of several one-variable loci.  The proofs all
+follow the same pattern:
+\begin{enumerate}[label=(\roman*)]
+  \item express the desired property using only existential quantifiers, Boolean operations, the graph
+  of the function, the order relation, and diagonals;
+  \item build a higher-dimensional counterexample set;
+  \item project away the witness variables;
+  \item take complements to express universal quantifiers;
+  \item project again if necessary.
+\end{enumerate}
+
+The file introduces several helper predicates.
+
+\subsection{Reindexing a relation into a larger coordinate space}
+
+If $A\subseteq R^n$ and
+\[
+  \sigma:\operatorname{Fin}(n)\to\operatorname{Fin}(m),
+\]
+then
+\[
+  \Lean{HoldsAt A sigma}
+\]
+is the subset of $R^m$ defined by
+\[
+  \{z\in R^m:(z_{\sigma(0)},\ldots,z_{\sigma(n-1)})\in A\}.
+\]
+The theorem
+\[
+  \Lean{holdsAt\_mem}
+\]
+says that if $A$ is definable, then \Lean{HoldsAt A sigma} is definable.
+
+\subsection{Domain, graph, order, and equality at chosen coordinates}
+
+For a one-dimensional domain $I\subseteq R$, the predicate
+\[
+  \Lean{DomainOn I i}
+\]
+means that the $i$-th coordinate belongs to $I$:
+\[
+  z_i\in I.
+\]
+
+For a graph $G\subseteq R^2$, the predicate
+\[
+  \Lean{GraphOn G i j}
+\]
+means
+\[
+  (z_i,z_j)\in G.
+\]
+
+The predicate
+\[
+  \Lean{LtOn D i j}
+\]
+means
+\[
+  z_i<z_j.
+\]
+
+The predicate
+\[
+  \Lean{EqOn i j}
+\]
+means
+\[
+  z_i=z_j.
+\]
+It is definable when $i<j$ by the diagonal axiom, and its complement is used to express inequality.
+
+\subsection{Intervals and cores}
+
+The helper predicate
+\[
+  \Lean{ValueIntervalAt D a w b}
+\]
+means
+\[
+  z_a<z_w<z_b.
+\]
+The helper predicate
+\[
+  \Lean{NeighbourhoodAt D c x d}
+\]
+means
+\[
+  z_c<z_x<z_d.
+\]
+Finally,
+\[
+  \Lean{CoreAt D G x a b v}
+\]
+means
+\[
+  (z_x,z_v)\in G
+  \qquad\text{and}\qquad
+  z_a<z_v<z_b.
+\]
+Each of these is definable because it is built from reindexed copies of $G$ and of the order relation,
+using finite intersections.
+
+The whole space $R^n$ is definable because it is the complement of the empty set.  This is the Lean
+theorem
+\[
+  \Lean{setUniv\_mem}.
+\]
+
+\section{Continuity points}
+
+Let
+\[
+  I\subseteq R
+\]
+be definable, and let
+\[
+  f:I\to R
+\]
+be a definable function.  Write
+\[
+  G=\Graph(f)\subseteq R^2.
+\]
+
+\subsection{The intended mathematical predicate}
+
+A point $x\in R$ is a continuity point of $f$ on $I$ if $x\in I$ and for every open interval
+$(a,b)$ containing $f(x)$, there exists an open interval $(c,d)$ containing $x$ such that
+\[
+  y\in I\text{ and }c<y<d
+  \quad\Longrightarrow\quad
+  a<f(y)<b.
+\]
+
+In graph language this becomes
+\[
+\begin{aligned}
+  x\in I
+  \quad\text{and}\quad
+  \forall a,b,v\;[&G(x,v)\land a<v<b\Rightarrow{}\\
+  &\exists c,d\;(c<x<d\land
+  \forall y,w\,(I(y)\land c<y<d\land G(y,w)\Rightarrow a<w<b))].
+\end{aligned}
+\]
+The Lean predicate encoding this mathematical statement is
+\[
+  \Lean{ContinuousAtOnGraph}.
+\]
+
+\subsection{The definable construction}
+
+The Lean proof constructs the discontinuity locus as an existential projection of a definable bad set.
+The coordinates in arity $8$ are ordered as
+\[
+  (x,a,b,v,c,d,y,w).
+\]
+Define the counterexample set
+\[
+\begin{aligned}
+  C_8=\bigl\{(x,a,b,v,c,d,y,w):{}&
+  y\in I,
+  \;c<y<d,
+  \;G(y,w),\\
+  &\neg(a<w<b)
+  \bigr\}.
+\end{aligned}
+\]
+This is the Lean definition
+\[
+  \Lean{Counter8}.
+\]
+It is definable by the theorem
+\[
+  \Lean{counter8\_mem}.
+\]
+
+Projecting away $(y,w)$ gives a definable subset of $R^6$:
+\[
+  C_6(x,a,b,v,c,d)
+  \quad\Longleftrightarrow\quad
+  \exists y,w,
+  \;(x,a,b,v,c,d,y,w)
+  \in C_8.
+\]
+This is
+\[
+  \Lean{CounterExists6}.
+\]
+Its complement says that the neighbourhood $(c,d)$ has no counterexample.
+
+Next define the good six-dimensional set
+\[
+\begin{aligned}
+  G_6(x,a,b,v,c,d)
+  \Longleftrightarrow{}&
+  G(x,v)
+  \land a<v<b
+  \land c<x<d\\
+  &\land \neg C_6(x,a,b,v,c,d).
+\end{aligned}
+\]
+This is
+\[
+  \Lean{Good6}.
+\]
+Projecting away $(c,d)$ gives
+\[
+  E_4(x,a,b,v)
+  \quad\Longleftrightarrow\quad
+  \exists c,d,
+  \;G_6(x,a,b,v,c,d).
+\]
+This is
+\[
+  \Lean{GoodExists4}.
+\]
+
+Now define
+\[
+\begin{aligned}
+  B_4(x,a,b,v)
+  \Longleftrightarrow{}&
+  G(x,v)
+  \land a<v<b
+  \land \neg E_4(x,a,b,v).
+\end{aligned}
+\]
+This says that $(a,b)$ is a bad neighbourhood of the value $v=f(x)$.  It is represented by
+\[
+  \Lean{Bad4}.
+\]
+Projecting away $(a,b,v)$ gives the bad point set
+\[
+  B_1(x)
+  \quad\Longleftrightarrow\quad
+  \exists a,b,v,
+  \;B_4(x,a,b,v).
+\]
+This is
+\[
+  \Lean{BadPoint1}.
+\]
+The constructed continuity locus is
+\[
+  \Cont(f)=I\cap (R\setminus B_1).
+\]
+In Lean this is
+\[
+  \Lean{ContinuousPoints}.
+\]
+
+\begin{theorem}[Definability of the constructed continuity locus]
+If $f:I\to R$ is definable, then \Lean{ContinuousPoints} is definable.
+\end{theorem}
+
+\begin{proof}
+The set $C_8$ is built from $I$, $G$, the order relation, finite intersections, and a complement.
+Hence $C_8$ is definable.  By block projection, $C_6$ is definable.  By complement and finite
+intersection, $G_6$ is definable.  By projection, $E_4$ is definable.  By complement and finite
+intersection, $B_4$ is definable.  By projection, $B_1$ is definable.  Finally,
+\[
+  I\cap(R\setminus B_1)
+\]
+is definable by complement and intersection.
+\end{proof}
+
+The Lean theorem is
+\[
+  \Lean{continuousPoints\_mem}.
+\]
+
+\begin{remark}
+The Lean file defines both the intended pointwise predicate \Lean{ContinuousAtOnGraph} and the
+constructed set \Lean{ContinuousPoints}.  The definability theorem uses the constructed set.  The
+mathematical equivalence between the two is exactly the counterexample-unwinding described above.
+\end{remark}
+
+\section{Locally constant points}
+
+\subsection{The intended mathematical predicate}
+
+The function $f:I\to R$ is locally constant at $x$ if $x\in I$ and there exists an interval $(c,d)$
+containing $x$ such that
+\[
+  y\in I\text{ and }c<y<d
+  \quad\Longrightarrow\quad
+  f(y)=f(x).
+\]
+In graph language this is
+\[
+\begin{aligned}
+  x\in I
+  \quad\text{and}\quad
+  \exists c,d,v\;[&G(x,v)
+  \land c<x<d\\
+  &\land
+  \forall y,w\,(I(y)\land c<y<d\land G(y,w)
+  \Rightarrow w=v)].
+\end{aligned}
+\]
+The corresponding Lean predicate is
+\[
+  \Lean{LocallyConstantAtOnGraph}.
+\]
+
+\subsection{The definable construction}
+
+Use coordinates
+\[
+  (x,c,d,v,y,w)
+  \in R^6.
+\]
+Define the bad set
+\[
+\begin{aligned}
+  C^{\mathrm{lc}}_6=\bigl\{(x,c,d,v,y,w):{}&
+  y\in I,
+  \;c<y<d,
+  \;G(y,w),
+  \;w\ne v
+  \bigr\}.
+\end{aligned}
+\]
+This is
+\[
+  \Lean{LocalConstCounter6}.
+\]
+It is definable because $w\ne v$ is the complement of the diagonal $w=v$.
+
+Projecting away $(y,w)$ gives
+\[
+  C^{\mathrm{lc}}_4(x,c,d,v),
+\]
+which says that the proposed neighbourhood and value admit a counterexample.  This is
+\[
+  \Lean{LocalConstCounterExists4}.
+\]
+Its complement says that no such counterexample exists.
+
+Define
+\[
+\begin{aligned}
+  G^{\mathrm{lc}}_4(x,c,d,v)
+  \Longleftrightarrow{}&
+  G(x,v)
+  \land c<x<d
+  \land \neg C^{\mathrm{lc}}_4(x,c,d,v).
+\end{aligned}
+\]
+This is
+\[
+  \Lean{LocalConstGood4}.
+\]
+Projecting away $(c,d,v)$ gives
+\[
+  G^{\mathrm{lc}}_1(x)
+  \quad\Longleftrightarrow\quad
+  \exists c,d,v,
+  \;G^{\mathrm{lc}}_4(x,c,d,v).
+\]
+The final locally constant locus is
+\[
+  \LC(f)=I\cap G^{\mathrm{lc}}_1.
+\]
+This is
+\[
+  \Lean{LocallyConstantPoints}.
+\]
+
+\begin{theorem}[Definability of the locally constant locus]
+If $f:I\to R$ is definable, then the constructed locally constant locus is definable.
+\end{theorem}
+
+\begin{proof}
+The set $C^{\mathrm{lc}}_6$ is definable by reindexing $I$, $G$, and the order relation, and by using
+the complement of a diagonal to express inequality.  Projection gives $C^{\mathrm{lc}}_4$.  Complement
+and intersection give $G^{\mathrm{lc}}_4$.  Projection gives $G^{\mathrm{lc}}_1$.  Intersecting with
+$I$ gives $\LC(f)$, which is therefore definable.
+\end{proof}
+
+The Lean theorem is
+\[
+  \Lean{locallyConstantPoints\_mem}.
+\]
+
+\section{Locally monotone points}
+
+\subsection{Convention}
+
+The Lean file uses the non-strict convention:
+\[
+  \text{locally increasing}=\text{locally nondecreasing},
+\]
+and
+\[
+  \text{locally decreasing}=\text{locally nonincreasing}.
+\]
+Since the primitive order symbol is strict, the weak inequality $u\le v$ is expressed as
+\[
+  \neg(v<u).
+\]
+
+\subsection{The intended mathematical predicates}
+
+The function $f:I\to R$ is locally increasing at $x$ if $x\in I$ and there exist $c,d$ such that
+$c<x<d$ and for all $y_0,y_1\in I$,
+\[
+  c<y_0<d,
+  \qquad
+  c<y_1<d,
+  \qquad
+  y_0<y_1
+  \quad\Longrightarrow\quad
+  f(y_0)\le f(y_1).
+\]
+Equivalently, in graph language, there should be no witnesses $y_0,y_1,w_0,w_1$ such that
+\[
+  G(y_0,w_0),
+  \qquad
+  G(y_1,w_1),
+  \qquad
+  y_0<y_1,
+  \qquad
+  w_1<w_0.
+\]
+
+Similarly, $f$ is locally decreasing at $x$ if there is no such local pair with
+\[
+  w_0<w_1.
+\]
+The corresponding Lean predicates are
+\[
+  \Lean{LocallyIncreasingAtOnGraph},
+  \qquad
+  \Lean{LocallyDecreasingAtOnGraph}.
+\]
+
+\subsection{The common base counterexample set}
+
+Use coordinates
+\[
+  (x,c,d,y_0,y_1,w_0,w_1)
+  \in R^7.
+\]
+The common base set is
+\[
+\begin{aligned}
+  C^{\mathrm{base}}_7=\bigl\{(x,c,d,y_0,y_1,w_0,w_1):{}&
+  y_0\in I,
+  \;y_1\in I,
+  \;c<y_0<d,
+  \;c<y_1<d,\\
+  &G(y_0,w_0),
+  \;G(y_1,w_1),
+  \;y_0<y_1
+  \bigr\}.
+\end{aligned}
+\]
+This is
+\[
+  \Lean{MonotoneBaseCounter7}.
+\]
+It is definable by finite intersections and reindexing.
+
+The increasing-bad set is
+\[
+  C^{\mathrm{inc}}_7
+  =
+  C^{\mathrm{base}}_7
+  \cap
+  \{w_1<w_0\}.
+\]
+This is
+\[
+  \Lean{MonoIncCounter7}.
+\]
+
+The decreasing-bad set is
+\[
+  C^{\mathrm{dec}}_7
+  =
+  C^{\mathrm{base}}_7
+  \cap
+  \{w_0<w_1\}.
+\]
+This is
+\[
+  \Lean{MonoDecCounter7}.
+\]
+Both are definable.
+
+\subsection{Projection to good neighbourhoods}
+
+Projecting away
+\[
+  (y_0,y_1,w_0,w_1)
+\]
+gives definable subsets of $R^3$:
+\[
+  C^{\mathrm{inc}}_3(x,c,d),
+  \qquad
+  C^{\mathrm{dec}}_3(x,c,d).
+\]
+They say that the interval $(c,d)$ contains a bad pair for increasingness or decreasingness,
+respectively.  In Lean these are
+\[
+  \Lean{MonoIncCounterExists3},
+  \qquad
+  \Lean{MonoDecCounterExists3}.
+\]
+
+Their complements say that the proposed neighbourhood has no bad pair.  Hence define
+\[
+\begin{aligned}
+  G^{\mathrm{inc}}_3(x,c,d)
+  &\Longleftrightarrow
+  c<x<d
+  \land
+  \neg C^{\mathrm{inc}}_3(x,c,d),\\
+  G^{\mathrm{dec}}_3(x,c,d)
+  &\Longleftrightarrow
+  c<x<d
+  \land
+  \neg C^{\mathrm{dec}}_3(x,c,d).
+\end{aligned}
+\]
+These are the Lean definitions
+\[
+  \Lean{MonoIncGood3},
+  \qquad
+  \Lean{MonoDecGood3}.
+\]
+
+Projecting away $(c,d)$ gives one-dimensional good-point sets
+\[
+  G^{\mathrm{inc}}_1,
+  \qquad
+  G^{\mathrm{dec}}_1.
+\]
+These are
+\[
+  \Lean{MonoIncGoodPoint1},
+  \qquad
+  \Lean{MonoDecGoodPoint1}.
+\]
+The final loci are
+\[
+  \LInc(f)=I\cap G^{\mathrm{inc}}_1,
+  \qquad
+  \LDec(f)=I\cap G^{\mathrm{dec}}_1.
+\]
+In Lean these are
+\[
+  \Lean{LocallyIncreasingPoints},
+  \qquad
+  \Lean{LocallyDecreasingPoints}.
+\]
+
+\begin{theorem}[Definability of local monotonicity loci]
+If $f:I\to R$ is definable, then the constructed locally increasing and locally decreasing loci are
+definable.
+\end{theorem}
+
+\begin{proof}
+The base counterexample set is definable because it is built from $I$, $G$, and $<$ using reindexing
+and finite intersections.  Intersecting it with $w_1<w_0$ gives the increasing-bad set, and
+intersecting it with $w_0<w_1$ gives the decreasing-bad set.  Both are definable.
+
+Projecting away the variables $y_0,y_1,w_0,w_1$ gives the bad-neighbourhood sets in $R^3$.  Taking
+complements expresses that no bad pair exists.  Intersecting with $c<x<d$ and then projecting away
+$(c,d)$ gives the points admitting a good neighbourhood.  Finally, intersecting with $I$ gives the
+locally increasing and locally decreasing loci.  Each step preserves definability.
+\end{proof}
+
+The Lean theorems are
+\[
+  \Lean{locallyIncreasingPoints\_mem},
+  \qquad
+  \Lean{locallyDecreasingPoints\_mem}.
+\]
+
+\section{Small sanity checks}
+
+The file ends with two simple checks.
+
+\begin{enumerate}[label=(\roman*)]
+  \item The empty set is definable in every arity:
+  \[
+    \Lean{empty\_definable}.
+  \]
+  \item The order relation is definable:
+  \[
+    \Lean{order\_definable}.
+  \]
+\end{enumerate}
+
+\section{Dictionary between Lean names and mathematical objects}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.52\textwidth}>{\raggedright\arraybackslash}p{0.38\textwidth}}
+\toprule
+Lean name & Mathematical meaning \\
+\midrule
+\endhead
+\Lean{Power R n} & The tuple space $R^n$. \\
+\Lean{Power.append} & Tuple concatenation $x\cat y$. \\
+\Lean{Power.left}, \Lean{Power.right} & Left and right coordinate blocks of a concatenated tuple. \\
+\Lean{setEmpty}, \Lean{setUnion}, \Lean{setInter}, \Lean{setCompl} & Empty set, union, intersection, complement. \\
+\Lean{DenseLinearOrderNoEndpoints} & Dense linear order without endpoints. \\
+\Lean{Endpoint R} & Formal endpoints $-\infty$, finite points of $R$, and $+\infty$. \\
+\Lean{FiniteUnionOfPointsAndIntervals} & Finite unions of points and open intervals in dimension one. \\
+\Lean{OMinimalStructure} & The family $(\Sfam_n)_n$ of definable sets with the closure axioms and the one-dimensional o-minimality axiom. \\
+\Lean{Definable M A} & The assertion $A\in\Sfam_n$. \\
+\Lean{FunctionGraph} & The graph of a function between subtype domains. \\
+\Lean{DefinableFunction} & A bundled definable function with definable domain, definable codomain, and definable graph. \\
+\Lean{FunctionImage} & The image set $\Imf(f)$. \\
+\Lean{imageGraphIndex}, \Lean{imageGraphArg} & The coordinate swap used to turn graph coordinates $(x,y)$ into projection-friendly coordinates $(y,x)$. \\
+\Lean{imageGraphArg\_append} & The identity $s(y\cat x)=x\cat y$ for the block-swap map. \\
+\Lean{functionImage\_mem\_of\_graph\_mem} & If the graph is definable, then the image is definable. \\
+\Lean{functionImage\_mem} & The image of a bundled definable function is definable. \\
+\Lean{DefinableFunction.image} & The named image of a bundled definable function. \\
+\Lean{DefinableFunction.image\_mem} & The named image is definable. \\
+\Lean{DefinableFunction.image\_subset\_codomain} & The image is contained in the codomain. \\
+\Lean{RelationComp} & Relational composition $H\circ G$. \\
+\Lean{relation\_comp\_mem} & Relational composition preserves definability. \\
+\Lean{relationComp\_functionGraph\_eq} & The relational composition of graphs equals the graph of the composed function. \\
+\Lean{DefinableFunction.comp} & Composition of definable functions. \\
+\Lean{HoldsAt} & Pullback of a definable set by a coordinate map. \\
+\Lean{DomainOn} & The condition that a chosen coordinate lies in the domain $I$. \\
+\Lean{GraphOn} & The condition that two chosen coordinates form a point of a graph $G$. \\
+\Lean{LtOn} & The order condition $z_i<z_j$. \\
+\Lean{EqOn} & The equality condition $z_i=z_j$. \\
+\Lean{ContinuousPoints} & The constructed continuity locus. \\
+\Lean{continuousPoints\_mem} & Definability of the constructed continuity locus. \\
+\Lean{LocallyConstantPoints} & The constructed locally constant locus. \\
+\Lean{locallyConstantPoints\_mem} & Definability of the constructed locally constant locus. \\
+\Lean{LocallyIncreasingPoints} & The constructed locally nondecreasing locus. \\
+\Lean{LocallyDecreasingPoints} & The constructed locally nonincreasing locus. \\
+\Lean{locallyIncreasingPoints\_mem}, \Lean{locallyDecreasingPoints\_mem} & Definability of the constructed local monotonicity loci. \\
+\bottomrule
+\end{longtable}
+
+\section{Summary of the new image theorem in one line}
+
+The mathematical content of the new Lean addition is exactly this implication:
+\[
+  \Graph(f)\in\Sfam_{m+n}
+  \quad\Longrightarrow\quad
+  \{y\in R^n:\exists x\in R^m,
+  \;(x,y)\in\Graph(f)\}
+  \in\Sfam_n.
+\]
+Because
+\[
+  \{y\in R^n:\exists x\in R^m,
+  \;(x,y)\in\Graph(f)\}
+  =
+  \Imf(f),
+\]
+this proves that the image of a definable function is definable.
+
+\end{document}
