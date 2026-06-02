@@ -1,0 +1,32 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amsthm, amssymb}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+
+\newtheorem{theorem}{Theorem}
+
+\begin{document}
+
+\section{Extrema of Finite Sets}
+\begin{theorem}
+Let $(M, <)$ be the underlying totally ordered set of an o-minimal structure. Every finite, non-empty subset $A \subseteq M$ has a minimum and a maximum.
+\end{theorem}
+\begin{proof}
+We proceed by mathematical induction on the cardinality $n = |A|$.
+
+\textbf{Base case:} For $n = 1$, let $A = \{x\}$. Clearly, $x$ is both the minimum and maximum since $\forall y \in A$, $x \le y$ and $y \le x$.
+
+\textbf{Inductive step:} Assume that every subset of size $k \ge 1$ has a minimum and a maximum. Let $A$ be a subset of size $k + 1$. We write $A = B \cup \{x\}$, where $|B| = k$ and $x \notin B$.
+
+By the inductive hypothesis, $B$ has a maximum $M_B$ and a minimum $m_B$. Since the set is totally ordered, we define:
+\begin{align*}
+M_A &= \max(M_B, x) \\
+m_A &= \min(m_B, x)
+\end{align*}
+
+Because $M_A \in A$ and is greater than or equal to all elements in $B$ and equal to or greater than $x$, it is the maximum of $A$. Similarly, $m_A$ is the minimum. By the principle of mathematical induction, this holds for all finite sets.
+\end{proof}
+
+
+
+\end{document}

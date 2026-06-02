@@ -1,0 +1,28 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amsthm, amssymb}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+
+\newtheorem{theorem}{Theorem}
+
+\begin{document}
+
+\section{Infinite Unions of Points and Intervals}
+\begin{theorem}
+Let $\mathcal{M} = (M, <, \dots)$ be an o-minimal structure.
+Let $S \subseteq M$ be a set constructed from the union of a finite number of points and open intervals.
+If $S$ is infinite, then $S$ must contain an open interval.
+\end{theorem}
+\begin{proof}
+Let the set $S$ be denoted by $S = P \cup I_1 \cup \dots \cup I_k$, where $P$ is a finite set of points and each $I_j$ is an open interval in $M$.
+Assume, for the sake of contradiction, that $S$ does not contain an open interval.
+This implies that the number of intervals $k = 0$. Consequently, $S = P$.
+By definition, $P$ is a finite set of points, meaning its cardinality $|P|$ is finite. Thus, $S$ would be finite.
+This contradicts the hypothesis that $S$ is an infinite set.
+Therefore, our assumption that $S$ contains no open intervals must be false.
+Hence, $k \ge 1$, and $S$ contains at least one open interval.
+Furthermore, because the underlying order of an o-minimal structure is dense, any such open interval $(a, b)$ with $a < b$ is strictly infinite, which consistently accounts for the infinite cardinality of $S$. 
+Note that an interval extending to positive infinity, yielding $+\infty$ as a supremum, is also trivially an infinite open interval.
+\end{proof}
+
+\end{document}

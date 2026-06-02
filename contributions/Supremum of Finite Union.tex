@@ -1,0 +1,28 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amsthm, amssymb}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+
+\newtheorem{theorem}{Theorem}
+
+\begin{document}
+
+\section{Supremum of a Finite Union}
+\begin{theorem}
+Let $A_1, \dots, A_n$ be non-empty definable subsets of $M$. If each $A_i$ has a supremum in $M$, then their finite union $A = \bigcup_{i=1}^n A_i$ also has a supremum, and $\sup(A) = \max\{\sup(A_1), \dots, \sup(A_n)\}$.
+\end{theorem}
+\begin{proof}
+Let $s_i = \sup(A_i)$ for each $1 \le i \le n$. The set of these supremums, $S = \{s_1, \dots, s_n\}$, is a finite, non-empty subset of $M$. By Theorem 1, it has a maximum. Let $M^* = \max(S)$.
+
+\begin{enumerate}
+    \item \textbf{Upper bound:} Let $x \in A$. Then $x \in A_k$ for some $k$. Because $s_k = \sup(A_k)$, $x \le s_k$. Because $M^* = \max(S)$, $s_k \le M^*$. Therefore $x \le M^*$, making $M^*$ an upper bound for $A$.
+    \item \textbf{Least upper bound:} Let $y < M^*$. Because $M^* \in S$, there is some index $j$ such that $M^* = s_j$. Since $y < s_j$ and $s_j$ is the least upper bound of $A_j$, $y$ cannot be an upper bound for $A_j$. Thus, there exists $z \in A_j$ such that $z > y$. Since $A_j \subseteq A$, $z \in A$. Therefore, no $y < M^*$ can be an upper bound for $A$.
+\end{enumerate}
+
+Thus, $M^*$ is the supremum of $A$.
+\end{proof}
+
+
+
+
+\end{document}

@@ -1,0 +1,28 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amsthm, amssymb}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+
+\newtheorem{theorem}{Theorem}
+
+\begin{document}
+
+\section{Definable Completeness}
+\begin{theorem}
+Let $\mathcal{M}$ be an o-minimal structure. Every non-empty definable set $S \subseteq M$ that is bounded above has a supremum in $M$.
+\end{theorem}
+\begin{proof}
+Because $S$ is definable, o-minimality dictates it can be written exactly as a finite union of open intervals and discrete points:
+\[ S = I_1 \cup \dots \cup I_k \cup P \]
+where $P$ is a finite set.
+
+Because $S$ is bounded above, every component of $S$ must also be bounded above. 
+\begin{enumerate}
+    \item For the finite set $P$, by Theorem 1, it has a maximum, which serves as its supremum: $\sup(P) = \max(P)$.
+    \item For any open interval $I_j$, because it is bounded above, it must be of the form $(a_j, b_j)$ or $(-\infty, b_j)$ for some endpoint $b_j \in M$. The supremum of this interval is exactly its right endpoint, $b_j$.
+\end{enumerate}
+
+Therefore, every individual component of $S$ has a supremum in $M$. By Theorem 3, the finite union of sets that each have a supremum also has a supremum. Thus, $S$ has a supremum in $M$.
+\end{proof}
+
+\end{document}

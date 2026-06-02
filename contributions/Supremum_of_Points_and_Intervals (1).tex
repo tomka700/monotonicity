@@ -1,0 +1,27 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amsthm, amssymb}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+
+\newtheorem{theorem}{Theorem}
+
+\begin{document}
+
+\section{Supremum of a Union of Points and Intervals}
+\begin{theorem}
+Let $\mathcal{M} = (M, <, \dots)$ be an o-minimal structure.
+Let $S \subseteq M$ be a non-empty set that can be expressed as the union of a finite number of points and open intervals.
+Then $S$ has a supremum in $M \cup \{+\infty\}$.
+\end{theorem}
+\begin{proof}
+Let $S$ be expressed as $S = P \cup I_1 \cup \dots \cup I_k$, where $P$ is a finite set of points and each $I_j$ is an open interval in $M$.
+Because we consider the extended domain $M \cup \{+\infty\}$, every individual component of $S$ has a supremum.
+The finite set of points $P$, if non-empty, has a maximum which serves as its supremum in $M$.
+For each open interval $I_j$, it can take the form $(a_j, b_j)$, $(-\infty, b_j)$, $(a_j, +\infty)$, or $(-\infty, +\infty)$ for $a_j, b_j \in M$.
+If the interval is bounded above, the supremum is precisely its right endpoint, $b_j \in M$. If the interval is unbounded above, its supremum is $+\infty$.
+Therefore, $S$ is a finite union of sets, each of which has a well-defined supremum in $M \cup \{+\infty\}$.
+The supremum of a finite union of sets, each possessing a supremum, is the maximum of their individual supremums.
+Thus, whether $S$ is bounded above or not, it has a supremum in $M \cup \{+\infty\}$.
+\end{proof}
+
+\end{document}

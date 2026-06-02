@@ -1,0 +1,25 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amsthm, amssymb}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+
+\newtheorem{theorem}{Theorem}
+
+\begin{document}
+\section{Intervals in Dense Orders}
+\begin{theorem}
+In an o-minimal structure $\mathcal{M} = (M, <, \dots)$, for any $a, b \in M$ with $a < b$, the open interval $(a, b)$ is infinite.
+\end{theorem}
+\begin{proof}
+By the definition of an o-minimal structure, the underlying order $<$ is dense. This means that for any $x, y \in M$ with $x < y$, there exists $z \in M$ such that $x < z < y$.
+
+Let $x_0 = b$. Since $a < x_0$, the density property guarantees there exists $x_1$ such that $a < x_1 < x_0$. 
+Assume we have recursively chosen $x_1, \dots, x_k$ such that:
+\[ a < x_k < \dots < x_1 < b \]
+
+Because $a < x_k$, density guarantees an $x_{k+1}$ such that $a < x_{k+1} < x_k$. This constructs an infinite, strictly decreasing sequence within $(a, b)$. Since the sequence is strictly decreasing, all elements are distinct. Thus, the interval is infinite.
+\end{proof}
+
+
+
+\end{document}
