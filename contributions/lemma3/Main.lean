@@ -11,7 +11,7 @@ def StrictlyMonotoneOn (D : DenseLinearOrderNoEndpoints R) (I : Set (Power R 1))
   StrictlyIncreasingOn D I B f \/ StrictlyDecreasingOn D I B f
 
 lemma injective_of_strictly_monotone_on {R : Type u} (D : DenseLinearOrderNoEndpoints R)
-    {I B : Set (Power R 1)} (f : {x : Power R 1 // I x} → {y : Power R 1 // B y})
+    {I B : Set (Power R 1)} (f : {x : Power R 1 // I x} -> {y : Power R 1 // B y})
     (hmono : StrictlyMonotoneOn D I B f) : f.Injective := by
     intro x y h_eq
     by_contra h_ne
