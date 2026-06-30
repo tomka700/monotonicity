@@ -1,0 +1,825 @@
+=== Line 1 ===
+import Mathlib
+
+Explanation:
+This opening setup imports Mathlib, disables several nonessential linter warnings, opens
+the `Set` namespace, declares a universe level, and begins the `OMinimal` namespace. It
+prepares the environment for formalizing o-minimal structures in Lean.
+
+=== Lines 2-6 ===
+set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
+set_option linter.unusedRCasesPattern false
+
+Explanation:
+This opening setup imports Mathlib, disables several nonessential linter warnings, opens
+the `Set` namespace, declares a universe level, and begins the `OMinimal` namespace. It
+prepares the environment for formalizing o-minimal structures in Lean.
+
+=== Lines 7-8 ===
+open Set
+
+Explanation:
+This opening setup imports Mathlib, disables several nonessential linter warnings, opens
+the `Set` namespace, declares a universe level, and begins the `OMinimal` namespace. It
+prepares the environment for formalizing o-minimal structures in Lean.
+
+=== Lines 9-10 ===
+universe u
+
+Explanation:
+This opening setup imports Mathlib, disables several nonessential linter warnings, opens
+the `Set` namespace, declares a universe level, and begins the `OMinimal` namespace. It
+prepares the environment for formalizing o-minimal structures in Lean.
+
+=== Lines 11-12 ===
+namespace OMinimal
+
+Explanation:
+This opening setup imports Mathlib, disables several nonessential linter warnings, opens
+the `Set` namespace, declares a universe level, and begins the `OMinimal` namespace. It
+prepares the environment for formalizing o-minimal structures in Lean.
+
+=== Lines 13-14 ===
+abbrev Rn (R : Type u) (n : Nat) := Fin n → R
+
+Explanation:
+Defines `Rn R n` as the Lean representation of `R^n`: a function from `Fin n` to `R`.
+`Fin n` is the type of valid coordinate indices `0, ..., n-1`, so an element of `Rn R n`
+is an n-tuple.
+
+=== Lines 15-24 ===
+def IsFiniteUnionOfPointsAndIntervals [LinearOrder R] (A : Set R) : Prop :=
+  ∃ L : List (Set R),
+    (∀ I ∈ L,
+      (∃ a, I = ({a} : Set R)) ∨
+      (∃ a b, I = Ioo a b) ∨
+      (∃ a, I = Iio a) ∨
+      (∃ a, I = Ioi a) ∨
+      I = univ) ∧
+    A = ⋃ I ∈ L, I
+
+Explanation:
+Defines what it means for a subset of the line `R` to be a finite union of basic one-
+dimensional pieces. The allowed pieces are singleton points, open bounded intervals,
+open rays, and the whole universe. This is the one-dimensional finiteness condition used
+in o-minimality.
+
+=== Lines 25-29 ===
+structure OMinimalStructure
+    (R : Type u) [LinearOrder R]
+    [DenselyOrdered R] [NoMinOrder R] [NoMaxOrder R] where
+  S : (n : Nat) → Set (Rn R n) → Prop
+
+Explanation:
+This begins the main structure. The type `R` is assumed to be linearly ordered, densely
+ordered, and without endpoints. The field `S` is the central object: `S n A` means that
+the subset `A` of `R^n` is declared definable in this o-minimal structure.
+=== Lines 31-35 ===
+  -- axiom (1): Boolean algebra on Rⁿ
+  empty_mem : ∀ n, S n ∅
+  union_mem : ∀ {n} {A B : Set (Rn R n)}, S n A → S n B → S n (A ∪ B)
+  compl_mem : ∀ {n} {A : Set (Rn R n)}, S n A → S n Aᶜ
+
+Explanation:
+This is the Boolean-algebra part of the definition. It says definable sets contain the
+empty set and are closed under finite union and complement. From these axioms,
+intersections and set differences can later be derived.
+=== Lines 37-44 ===
+  -- axiom (2): cylinder closure
+  right_cylinder_mem :
+    ∀ {n} {A : Set (Rn R n)},
+      S n A →
+      S (n + 1)
+        {x : Rn R (n + 1) | (fun i : Fin n => x (Fin.castSucc i)) ∈ A}
+
+Explanation:
+This is the right-cylinder axiom. If `A ⊆ R^n` is definable, then the subset of
+`R^(n+1)` obtained by adding one unused coordinate at the end is also definable. The map
+using `Fin.castSucc` reads the first `n` coordinates of the longer tuple.
+=== Lines 46-52 ===
+  left_cylinder_mem :
+    ∀ {n} {B : Set (Rn R n)},
+      S n B →
+      S (n + 1)
+        {x : Rn R (n + 1) | (fun i : Fin n => x (Fin.succ i)) ∈ B}
+
+Explanation:
+This is the left-cylinder axiom. It adds one unused coordinate at the beginning instead
+of the end. The map `Fin.succ` skips the new first coordinate and reads the old `n`
+coordinates from positions `1, ..., n`.
+=== Lines 54-57 ===
+  -- axiom (3): diagonals
+  diagonal_mem :
+    ∀ {n} (i j : Fin n), i < j →
+      S n {x : Rn R n | x i = x j}
+
+Explanation:
+This diagonal axiom says equality between two coordinates is definable. These
+coordinate-equality sets are important for building graphs of coordinate maps and
+reindexing operations later.
+=== Lines 59-63 ===
+  -- axiom (4): usual last-coordinate projection
+  proj_mem :
+    ∀ {n} {A : Set (Rn R (n + 1))},
+      S (n + 1) A →
+      S n {x : Rn R n | ∃ y : R, Fin.snoc x y ∈ A}
+
+Explanation:
+This projection axiom says definability is preserved when existentially eliminating the
+final coordinate. Mathematically, if `A ⊆ R^(n+1)` is definable, then its projection
+onto the first `n` coordinates is definable.
+=== Lines 65-67 ===
+  -- axiom (5): points and order
+  point_mem : ∀ r : R, S 1 {x : Rn R 1 | x 0 = r}
+  order_mem : S 2 {x : Rn R 2 | x 0 < x 1}
+
+Explanation:
+These axioms say that individual points in `R` and the strict order relation `<` on `R²`
+are definable. They ensure the structure contains the basic ordered-field-style
+relations needed for o-minimal geometry.
+=== Lines 69-72 ===
+  -- axiom (6): o-minimality on R
+  ominimal :
+    ∀ A : Set (Rn R 1),
+      S 1 A ↔ IsFiniteUnionOfPointsAndIntervals {r : R | (fun _ : Fin 1 => r) ∈ A}
+
+Explanation:
+This is the actual o-minimality condition in dimension one. It identifies definable
+subsets of the line with finite unions of points and intervals, using a conversion
+between `R` and the one-coordinate tuple type `Rn R 1`.
+
+Explanation (lines 25-67):
+Introduces the main structure `OMinimalStructure`. It contains a predicate `S n A`,
+meaning that a set `A ⊆ R^n` is definable, together with axioms saying definable sets
+are closed under Boolean operations, cylinders, diagonals, projections, points, order,
+and the one-dimensional o-minimality condition. These are the axioms (1-6) in the book.
+
+=== Lines 68-70 ===
+variable {R : Type u} [LinearOrder R]
+  [DenselyOrdered R] [NoMinOrder R] [NoMaxOrder R]
+
+Explanation:
+Declares the ambient ordered type `R`, its order-theoretic assumptions, and a fixed
+o-minimal structure `M`. Later theorems are proved relative to these shared assumptions.
+
+=== Lines 71-72 ===
+variable (M : OMinimalStructure R)
+
+Explanation:
+Declares the ambient ordered type `R`, its order-theoretic assumptions, and a fixed
+o-minimal structure `M`. Later theorems are proved relative to these shared assumptions.
+
+=== Lines 73-76 ===
+theorem inter_mem {n} {A B : Set (Rn R n)} (hA : M.S n A) (hB : M.S n B) : M.S n (A ∩ B) := by
+  rw [inter_eq_compl_compl_union_compl]
+  exact M.compl_mem (M.union_mem (M.compl_mem hA) (M.compl_mem hB))
+
+Explanation:
+Proves that definable sets are closed under intersection. This is derived from the
+axioms for complement and union using the identity `A ∩ B = (Aᶜ ∪ Bᶜ)ᶜ`.
+
+=== Lines 77-78 ===
+theorem theorem_i (n : Nat) : M.S n ∅ := M.empty_mem n
+
+Explanation:
+Proves the stated definability result for this theorem by using the relevant closure property of the o-minimal structure.
+
+=== Lines 79-81 ===
+theorem theorem_ii {n} {A B : Set (Rn R n)} (hA : M.S n A) (hB : M.S n B) : M.S n (A ∪ B) :=
+  M.union_mem hA hB
+
+Explanation:
+Proves the stated definability result for this theorem by using the relevant closure property of the o-minimal structure.
+
+=== Lines 82-85 ===
+theorem theorem_iii {n} {A B : Set (Rn R n)} (hA : M.S n A) (hB : M.S n B) : M.S n (A ∩ B) := by
+  have h : M.S n ((Aᶜ ∪ Bᶜ)ᶜ) := M.compl_mem (M.union_mem (M.compl_mem hA) (M.compl_mem hB))
+  simpa [compl_union] using h
+
+Explanation:
+Proves the stated definability result for this theorem by using the relevant closure property of the o-minimal structure.
+
+=== Lines 86-87 ===
+theorem theorem_iv {n} {A : Set (Rn R n)} (hA : M.S n A) : M.S n Aᶜ := M.compl_mem hA
+
+Explanation:
+Proves the stated definability result for this theorem by using the relevant closure property of the o-minimal structure.
+
+=== Lines 88-90 ===
+theorem theorem_v {n} (i j : Fin n) (hij : i < j) : M.S n {x : Rn R n | x i = x j} :=
+  M.diagonal_mem i j hij
+
+Explanation:
+Restates the diagonal axiom: the set of points in `R^n` where coordinates `i` and `j`
+are equal is definable.
+
+=== Lines 91-92 ===
+theorem theorem_x : M.S 2 {x : Rn R 2 | x 0 < x 1} := M.order_mem
+
+Explanation:
+Restates the order axiom: the basic relation `{(x₀,x₁) | x₀ < x₁}` is definable in `R²`.
+
+=== Lines 93-96 ===
+theorem theorem_xi (A : Set (Rn R 1)) :
+    M.S 1 A ↔ IsFiniteUnionOfPointsAndIntervals {r : R | (fun _ : Fin 1 => r) ∈ A} :=
+  M.ominimal A
+
+Explanation:
+Restates the o-minimality axiom: a one-dimensional definable set is exactly a finite union of points and intervals.
+
+=== Lines 97-99 ===
+def projLast {n : ℕ} : Set (Rn R (n + 1)) → Set (Rn R n) :=
+  fun A => {x | ∃ y : R, Fin.snoc x y ∈ A}
+
+Explanation:
+Defines projection away from the last coordinate. A point `x ∈ R^n` is in `projLast A`
+when there exists some final coordinate `y` such that `(x,y)` lies in `A`.
+
+=== Lines 100-103 ===
+def projBlock (n : ℕ) : ∀ m : ℕ, Set (Rn R (n + m)) → Set (Rn R n)
+| Nat.zero, A => {x : Rn R n | (fun (k : Fin (n + 0)) => x (Fin.cast (Nat.add_zero n).symm k)) ∈ A}
+| Nat.succ m, A => projBlock n m (projLast A)
+
+Explanation:
+Defines projection away from a whole block of `m` final coordinates by recursion on `m`.
+For `m = 0` it only casts coordinates, and for `m + 1` it projects one last coordinate
+and then continues.
+
+=== Lines 104-109 ===
+@[simp] lemma projBlock_zero {n : ℕ} (A : Set (Rn R (n + 0))) :
+    projBlock n Nat.zero A = {x : Rn R n | (fun (k : Fin (n + 0)) => x (Fin.cast (Nat.add_zero n).symm k)) ∈ A} := rfl
+
+@[simp] lemma projBlock_succ {n m : ℕ} (A : Set (Rn R (n + Nat.succ m))) :
+    projBlock n (Nat.succ m) A = projBlock n m (projLast A) := rfl
+
+Explanation:
+Records simplification lemmas for the recursive definition of `projBlock`. These let
+Lean unfold the zero and successor cases automatically during later proofs.
+
+=== Lines 110-115 ===
+theorem right_cylinder_iter_mem {n m} {A : Set (Rn R n)} (hA : M.S n A) :
+    M.S (n + m) {z : Rn R (n + m) | (fun i : Fin n => z (Fin.castAdd m i)) ∈ A} := by
+  induction m with
+  | zero => exact hA
+  | succ m ih => exact M.right_cylinder_mem ih
+
+Explanation:
+Proves that definability is preserved when adding `m` unused coordinates on the right.
+It iterates the structure's one-step right-cylinder axiom.
+
+=== Lines 116-121 ===
+lemma cast_mem {n1 n2 : ℕ} (heq : n1 = n2) {A : Set (Rn R n1)} (hA : M.S n1 A) :
+    M.S n2 {z : Rn R n2 | (fun i : Fin n1 => z (Fin.cast heq i)) ∈ A} := by
+  subst heq
+  have h_eq : {z : Rn R n1 | (fun i : Fin n1 => z (Fin.cast rfl i)) ∈ A} = A := by ext z; rfl
+  exact h_eq ▸ hA
+
+Explanation:
+Shows that definability is preserved when the ambient dimension is rewritten along an
+equality of natural numbers. This handles Lean's strict type distinctions between spaces
+like `R^(n+0)` and `R^n`.
+
+=== Lines 122-124 ===
+theorem left_cylinder_iter_mem {n m} {B : Set (Rn R m)} (hB : M.S m B) :
+    M.S (n + m) {z : Rn R (n + m) | (fun j : Fin m => z (Fin.natAdd n j)) ∈ B} := by
+  induction n with
+
+Explanation:
+The theorem states that adding `n` unused coordinates on the left of a definable set `B
+⊆ R^m` preserves definability. The proof uses induction on the number `n` of added left
+coordinates.
+=== Lines 125-132 ===
+  | zero =>
+      have heq : 0 + m = m := Nat.zero_add m
+      have hcast := cast_mem M heq.symm hB
+      have h_eq : {z : Rn R (0 + m) | (fun j : Fin m => z (Fin.natAdd 0 j)) ∈ B} =
+                  {z : Rn R (0 + m) | (fun i : Fin m => z (Fin.cast heq.symm i)) ∈ B} := by
+        ext z
+        change (fun j : Fin m => z (Fin.natAdd 0 j)) ∈ B ↔ (fun i : Fin m => z (Fin.cast heq.symm i)) ∈ B
+
+Explanation:
+This starts the base case `n = 0`. Since adding zero coordinates should change nothing,
+the proof uses `0 + m = m` and `cast_mem` to translate between Lean's type for `R^(0+m)`
+and the type for `R^m`.
+=== Lines 133-137 ===
+        have h_fun : (fun j : Fin m => z (Fin.natAdd 0 j)) = (fun i : Fin m => z (Fin.cast heq.symm i)) := by
+          funext j; congr 1; ext; simp [Fin.natAdd, Fin.cast]
+        rw [h_fun]
+      rw [h_eq]
+      exact hcast
+
+Explanation:
+This finishes the base case by proving the two coordinate-selection functions are
+extensionally equal. `funext` proves equality of functions, `simp` simplifies the `Fin`
+casts, and then the theorem follows from the casted version of `hB`.
+=== Lines 138-143 ===
+  | succ n ih =>
+      have h1 := M.left_cylinder_mem ih
+      have heq : n + m + 1 = n + 1 + m := by omega
+      have hcast := cast_mem M heq h1
+      have h_eq : {z : Rn R (n + 1 + m) | (fun j => z (Fin.natAdd (n + 1) j)) ∈ B} =
+                  {z : Rn R (n + 1 + m) | (fun i => z (Fin.cast heq i)) ∈ {x | (fun i_1 => x (Fin.succ i_1)) ∈ {z_1 | (fun j => z_1 (Fin.natAdd n j)) ∈ B}}} := by
+
+Explanation:
+This begins the inductive step. The induction hypothesis says `B` remains definable
+after adding `n` left coordinates. Applying the one-step `left_cylinder_mem` adds one
+more coordinate, and `omega` proves the arithmetic equality needed to rewrite the
+dimension as `(n+1)+m`.
+=== Lines 144-151 ===
+        ext z
+        change (fun j : Fin m => z (Fin.natAdd (n + 1) j)) ∈ B ↔ (fun j : Fin m => z (Fin.cast heq (Fin.succ (Fin.natAdd n j)))) ∈ B
+        have h_fun : (fun j : Fin m => z (Fin.natAdd (n + 1) j)) =
+                     (fun j : Fin m => z (Fin.cast heq (Fin.succ (Fin.natAdd n j)))) := by
+          funext j; congr 1; ext; simp [Fin.natAdd, Fin.succ, Fin.cast]; omega
+        rw [h_fun]
+      rw [h_eq]
+      exact hcast
+
+Explanation:
+This finishes the inductive step by proving that the two ways of indexing the old
+`B`-coordinates agree. Most of the work is bookkeeping about `Fin` indices; after the
+coordinate functions are shown equal, the casted definability result `hcast` proves the
+goal.
+
+Explanation (lines 122-151):
+Proves the analogous cylinder result for adding unused coordinates on the left. The
+proof is more technical because Lean must track how `Fin` indices move through the added
+block.
+
+=== Lines 152-159 ===
+theorem definable_projBlock {n m : ℕ} {A : Set (Rn R (n + m))} (hA : M.S (n + m) A) :
+    M.S n (projBlock n m A) := by
+  induction m with
+  | zero =>
+      have heq : n = n + 0 := (Nat.add_zero n).symm
+      exact cast_mem M heq hA
+  | succ m ih => exact ih (M.proj_mem hA)
+
+Explanation:
+Proves that projecting away a block of coordinates preserves definability. It iterates
+the one-coordinate projection axiom and uses `cast_mem` in the zero-coordinate case.
+
+=== Lines 160-167 ===
+theorem prod_univ_right_mem {n m} {A : Set (Rn R n)} (hA : M.S n A) :
+    M.S (n + m) {z : Rn R (n + m) | (fun i : Fin n => z (Fin.castAdd m i)) ∈ A} :=
+  right_cylinder_iter_mem (M := M) hA
+
+theorem prod_univ_left_mem {n m} {B : Set (Rn R m)} (hB : M.S m B) :
+    M.S (n + m) {z : Rn R (n + m) | (fun j : Fin m => z (Fin.natAdd n j)) ∈ B} :=
+  left_cylinder_iter_mem (M := M) hB
+
+Explanation:
+Packages the iterated cylinder results as product-with-universe facts. These say that
+taking `A × R^m` or `R^n × B` preserves definability.
+
+=== Lines 168-172 ===
+theorem prod_mem_helper {n m} {A : Set (Rn R n)} {B : Set (Rn R m)} (hA : M.S n A) (hB : M.S m B) :
+    M.S (n + m) ({z : Rn R (n + m) | (fun i : Fin n => z (Fin.castAdd m i)) ∈ A} ∩
+                 {z : Rn R (n + m) | (fun j : Fin m => z (Fin.natAdd n j)) ∈ B}) := by
+  exact inter_mem M (prod_univ_right_mem M hA) (prod_univ_left_mem M hB)
+
+Explanation:
+Combines the right and left cylinder results using intersection. This proves that a
+product-style condition involving both an `A` block and a `B` block is definable.
+
+=== Lines 173-176 ===
+theorem block_proj_mem {n m : ℕ} {A : Set (Rn R (n + m))} (hA : M.S (n + m) A) :
+    M.S n (projBlock n m A) :=
+  definable_projBlock (M := M) hA
+
+Explanation:
+Provides a shorter alias for `definable_projBlock`, emphasizing that block projections
+of definable sets remain definable.
+
+=== Lines 177-180 ===
+theorem one_last_proj_mem {n} {A : Set (Rn R (n + 1))} (hA : M.S (n + 1) A) :
+    M.S n {x : Rn R n | ∃ y : R, Fin.snoc x y ∈ A} :=
+  M.proj_mem hA
+
+Explanation:
+Restates the original one-coordinate projection axiom in a convenient theorem form.
+
+=== Lines 181-184 ===
+theorem univ_mem {n : ℕ} : M.S n (Set.univ : Set (Rn R n)) := by
+  have h : M.S n (∅ᶜ : Set (Rn R n)) := M.compl_mem (M.empty_mem n)
+  simpa using h
+
+Explanation:
+Derives definability of the whole universe from the empty-set axiom and complement
+closure, since `univ = ∅ᶜ`.
+
+=== Lines 185-190 ===
+lemma mem_foldr_inter {α : Type u} (L : List (Set α)) (z : α) :
+    z ∈ L.foldr (· ∩ ·) Set.univ ↔ ∀ A ∈ L, z ∈ A := by
+  induction L with
+  | nil => simp
+  | cons A L ih => simp [ih]
+
+Explanation:
+Characterizes membership in a finite intersection represented as `List.foldr`. It says a
+point is in the folded intersection exactly when it belongs to every set in the list.
+
+=== Lines 191-198 ===
+theorem finite_inter_mem {n : ℕ} (L : List (Set (Rn R n))) (hL : ∀ A ∈ L, M.S n A) :
+    M.S n (L.foldr (· ∩ ·) Set.univ) := by
+  induction L with
+  | nil => simpa using univ_mem (M := M)
+  | cons A L ih =>
+      simp only [List.foldr_cons]
+      exact inter_mem M (hL A (by simp)) (ih (by intro B hB; exact hL B (by simp [hB])))
+
+Explanation:
+Proves that any finite intersection of definable sets is definable. The proof uses
+induction on the list and the already-proved binary intersection result.
+
+=== Lines 199-204 ===
+lemma mem_projBlock_iff {n m : ℕ} {A : Set (Rn R (n + m))} {x : Rn R n} :
+    x ∈ projBlock n m A ↔
+      ∃ y : Rn R m, (fun k : Fin (n + m) =>
+        if h : k.1 < n then x ⟨k.1, h⟩ else y ⟨k.1 - n, by omega⟩) ∈ A := by
+  induction m with
+
+Explanation:
+This lemma gives the concrete meaning of the recursively defined `projBlock`. It says
+`x` is in the projection exactly when there exists a hidden `m`-tuple `y` such that the
+tuple formed by concatenating `x` and `y` lies in `A`. The proof proceeds by induction
+on `m`.
+=== Lines 205-216 ===
+  | zero =>
+      constructor
+      · intro hx
+        refine ⟨fun i => Fin.elim0 i, ?_⟩
+        have h_fun : (fun (k : Fin (n + 0)) => if h : k.1 < n then x ⟨k.1, h⟩ else (fun i => Fin.elim0 i) ⟨k.1 - n, by omega⟩) =
+                     (fun (k : Fin (n + 0)) => x (Fin.cast (Nat.add_zero n).symm k)) := by
+          funext k
+          have hk : k.1 < n := by omega
+          simp [hk]
+        change _ ∈ A
+        rwa [h_fun]
+
+Explanation:
+This proves the forward direction in the base case `m = 0`. There are no hidden
+coordinates, so the witness `y : Rn R 0` is the empty tuple, defined by `Fin.elim0`. The
+proof shows that the constructed concatenation is just `x`, up to Lean's cast from `n+0`
+to `n`.
+=== Lines 217-226 ===
+      · rintro ⟨y, hy⟩
+        have h_fun : (fun (k : Fin (n + 0)) => if h : k.1 < n then x ⟨k.1, h⟩ else y ⟨k.1 - n, by omega⟩) =
+                     (fun (k : Fin (n + 0)) => x (Fin.cast (Nat.add_zero n).symm k)) := by
+          funext k
+          have hk : k.1 < n := by omega
+          simp [hk]
+        change _ ∈ A
+        rwa [h_fun] at hy
+
+Explanation:
+This proves the reverse direction in the base case. Any alleged hidden tuple still has
+type `Rn R 0`, so it has no coordinates. Again the combined tuple reduces to `x`,
+allowing the projection membership statement to be recovered.
+=== Lines 227-236 ===
+  | succ m ih =>
+      constructor
+      · intro hx
+        simp only [projBlock_succ] at hx
+        rcases ih.mp hx with ⟨y, hy⟩
+        simp only [projLast, mem_setOf_eq] at hy
+        rcases hy with ⟨r, hr⟩
+        refine ⟨Fin.snoc y r, ?_⟩
+
+Explanation:
+This begins the forward direction for `m+1`. The recursive definition says projecting
+`m+1` coordinates means first projecting one last coordinate, then projecting `m` more.
+The induction hypothesis gives an `m`-tuple `y`, and `projLast` gives one final
+coordinate `r`; together they form `Fin.snoc y r`, an `(m+1)`-tuple.
+=== Lines 237-249 ===
+        have h_fun : (fun (k : Fin (n + m + 1)) => if h : k.1 < n then x ⟨k.1, h⟩ else (Fin.snoc y r) ⟨k.1 - n, by omega⟩) =
+                     (Fin.snoc (fun (k' : Fin (n + m)) => if h : k'.1 < n then x ⟨k'.1, h⟩ else y ⟨k'.1 - n, by omega⟩) r) := by
+          funext k
+          by_cases hk : k.1 < n
+          · have h_last : k.1 < n + m := by omega
+            simp [hk, h_last, Fin.snoc]
+          · by_cases h_last : k.1 < n + m
+            · simp [hk, h_last, Fin.snoc]
+            · have heq : k.1 = n + m := by omega
+              simp only [hk, h_last, Fin.snoc, dif_neg, not_false_eq_true]
+              congr 1; ext; omega
+        change _ ∈ A
+        rwa [h_fun]
+
+Explanation:
+This proves that the manually constructed concatenation of `x` with `Fin.snoc y r` is
+equal to the tuple obtained by appending `r` to the previous concatenation. The proof
+splits coordinates into three cases: the original `x` block, the earlier hidden `y`
+block, and the final coordinate `r`.
+=== Lines 250-261 ===
+      · rintro ⟨y, hy⟩
+        simp only [projBlock_succ, projLast, mem_setOf_eq]
+        apply ih.mpr
+        refine ⟨fun j : Fin m => y (Fin.castSucc j), y (Fin.last m), ?_⟩
+        have h_fun : (Fin.snoc (fun (k' : Fin (n + m)) => if h : k'.1 < n then x ⟨k'.1, h⟩ else y (Fin.castSucc ⟨k'.1 - n, by omega⟩)) (y (Fin.last m))) =
+                     (fun (k : Fin (n + m + 1)) => if h : k.1 < n then x ⟨k.1, h⟩ else y ⟨k.1 - n, by omega⟩) := by
+          funext k
+          by_cases hk : k.1 < n
+          · have h_last : k.1 < n + m := by omega
+            simp [hk, h_last, Fin.snoc]
+          · by_cases h_last : k.1 < n + m
+            · simp [hk, h_last, Fin.snoc]
+            · have heq : k.1 = n + m := by omega
+              simp only [hk, h_last, Fin.snoc, dif_neg, not_false_eq_true]
+              congr 1; ext; omega
+        change _ ∈ A
+        rwa [h_fun]
+
+Explanation:
+This proves the reverse direction for `m+1`. Given a hidden `(m+1)`-tuple `y`, the proof
+splits it into its first `m` coordinates and its last coordinate. Then the induction
+hypothesis reduces the goal to the `m`-coordinate projection case.
+
+Explanation (lines 199-261):
+Gives an explicit membership characterization for `projBlock`. It says that `x` lies in
+a block projection exactly when there is a tuple of hidden coordinates `y` such that the
+combined tuple belongs to `A`. This is a key bridge between the recursive Lean
+definition and the mathematical meaning of projection.
+
+=== Lines 262-266 ===
+theorem graph_of_reindex_mem {n m : ℕ} (σ : Fin n → Fin m) :
+    M.S (m + n) {z : Rn R (m + n) | ∀ i : Fin n, z (Fin.castAdd n (σ i)) = z (Fin.natAdd m i)} := by
+  let D : Fin n → Set (Rn R (m + n)) :=
+    fun i => {z : Rn R (m + n) | z (Fin.castAdd n (σ i)) = z (Fin.natAdd m i)}
+
+Explanation:
+This theorem constructs the definable graph of a coordinate reindexing map `σ`. The
+ambient tuple has an `m`-block followed by an `n`-block; for each `i`, the theorem
+requires the `i`th coordinate of the second block to equal the `σ i` coordinate of the
+first block.
+=== Lines 267-270 ===
+  have hD : ∀ i : Fin n, M.S (m + n) (D i) := by
+    intro i
+    exact M.diagonal_mem (Fin.castAdd n (σ i)) (Fin.natAdd m i) (Nat.lt_add_right i.1 (σ i).isLt)
+
+Explanation:
+Each individual equality condition `D i` is definable by the diagonal axiom. The final
+proof term shows that the first index is strictly before the second index, so it fits
+the required `i < j` input of `diagonal_mem`.
+=== Lines 271-276 ===
+  let L : List (Set (Rn R (m + n))) := List.ofFn D
+  have hL : ∀ A ∈ L, M.S (m + n) A := by
+    intro A hA
+    rcases List.mem_ofFn.mp hA with ⟨i, rfl⟩
+    exact hD i
+  have hfold : M.S (m + n) (L.foldr (· ∩ ·) Set.univ) := finite_inter_mem M L hL
+
+Explanation:
+The family of equality conditions is converted into a finite list `L`. Since every set
+in that list is definable, `finite_inter_mem` proves that their finite intersection is
+definable.
+=== Lines 277-286 ===
+  have h_eq : {z : Rn R (m + n) | ∀ i : Fin n, z (Fin.castAdd n (σ i)) = z (Fin.natAdd m i)} = L.foldr (· ∩ ·) Set.univ := by
+    ext z
+    rw [mem_foldr_inter]
+    constructor
+    · intro hz A hA
+      rcases List.mem_ofFn.mp hA with ⟨i, rfl⟩
+      exact hz i
+    · intro hz i
+      apply hz
+      exact List.mem_ofFn.mpr ⟨i, rfl⟩
+  exact h_eq.symm ▸ hfold
+
+Explanation:
+This identifies the universal condition `∀ i, ...` with membership in the finite
+intersection of all `D i`. After proving the two sets are equal, the definability of the
+finite intersection is transported to the desired graph set.
+
+Explanation (lines 262-286):
+Proves that the graph encoding a coordinate reindexing map `σ : Fin n → Fin m` is
+definable. It builds the graph as a finite intersection of diagonal equalities.
+
+=== Lines 287-294 ===
+theorem reindex_mem {n m} {A : Set (Rn R n)} (σ : Fin n → Fin m) (hA : M.S n A) :
+    M.S m {x : Rn R m | (fun i : Fin n => x (σ i)) ∈ A} := by
+  let C : Set (Rn R (m + n)) :=
+    {z : Rn R (m + n) | (fun j : Fin n => z (Fin.natAdd m j)) ∈ A} ∩
+    {z : Rn R (m + n) | ∀ i : Fin n, z (Fin.castAdd n (σ i)) = z (Fin.natAdd m i)}
+  have hC : M.S (m + n) C := inter_mem M (prod_univ_left_mem M hA) (graph_of_reindex_mem M σ)
+
+Explanation:
+This theorem proves closure under coordinate reindexing. It introduces an auxiliary set
+`C` in `R^(m+n)`: the second block must lie in `A`, and the second block must also equal
+the selected coordinates of the first block according to `σ`. This `C` is definable
+because it is the intersection of a cylinder over `A` and the definable graph of `σ`.
+=== Lines 295-299 ===
+  have hp : M.S m (projBlock n m C) := block_proj_mem M (n := m) (m := n) hC
+  have h_eq : {x : Rn R m | (fun i : Fin n => x (σ i)) ∈ A} = projBlock m n C := by
+    ext x
+    rw [mem_projBlock_iff]
+    constructor
+
+Explanation:
+After defining `C`, the proof projects away the auxiliary `n`-block. The remaining task
+is to show that this projection is exactly the desired reindexed preimage of `A`. The
+proof starts by extensionality on a point `x`.
+=== Lines 300-316 ===
+    · intro hx
+      refine ⟨fun i : Fin n => x (σ i), ?_⟩
+      constructor
+      · have h_fun : (fun j : Fin n => (fun (k : Fin (m + n)) => if h : k.1 < m then x ⟨k.1, h⟩ else (fun (i : Fin n) => x (σ i)) ⟨k.1 - m, by omega⟩) (Fin.natAdd m j)) = (fun i : Fin n => x (σ i)) := by
+          funext j
+          have hj : ¬((Fin.natAdd m j).1 < m) := by
+            have := j.isLt; simp [Fin.natAdd]; omega
+          simp [Fin.natAdd, hj]
+        change _ ∈ A
+        rwa [h_fun]
+      · intro i
+        have h1 : (Fin.castAdd n (σ i)).1 < m := (σ i).isLt
+        have h2 : ¬((Fin.natAdd m i).1 < m) := by
+          have := i.isLt; simp [Fin.natAdd]; omega
+        simp [Fin.castAdd, Fin.natAdd, h1, h2]
+
+Explanation:
+This proves the forward implication. If the selected-coordinate tuple `(fun i => x (σ
+i))` lies in `A`, then it can be used as the hidden witness `y` in the projection. The
+two parts of membership in `C` are then checked: the hidden block is in `A`, and the
+graph equations hold by construction.
+=== Lines 317-333 ===
+    · rintro ⟨y, hyA, hg⟩
+      have H : (fun i : Fin n => x (σ i)) = (fun j : Fin n => y j) := by
+        funext i
+        have h_eval := hg i
+        have h1 : (Fin.castAdd n (σ i)).1 < m := (σ i).isLt
+        have h2 : ¬((Fin.natAdd m i).1 < m) := by
+          have := i.isLt; simp [Fin.natAdd]; omega
+        simp only [Fin.castAdd, Fin.natAdd, h1, h2, dif_pos, dif_neg, not_false_eq_true] at h_eval
+        exact h_eval
+      have hyA_simp : (fun j : Fin n => y j) ∈ A := by
+        have h_fun : (fun (j : Fin n) => (fun (k : Fin (m + n)) => if h : k.1 < m then x ⟨k.1, h⟩ else y ⟨k.1 - m, by omega⟩) (Fin.natAdd m j)) = (fun j => y j) := by
+          funext j
+          have hj : ¬((Fin.natAdd m j).1 < m) := by
+            have := j.isLt; simp [Fin.natAdd]; omega
+          simp only [Fin.natAdd, hj, dif_neg, not_false_eq_true]
+          congr 1; ext; omega
+        change (fun j : Fin n => (fun (k : Fin (m + n)) => if h : k.1 < m then x ⟨k.1, h⟩ else y ⟨k.1 - m, by omega⟩) (Fin.natAdd m j)) ∈ A at hyA
+        rwa [h_fun] at hyA
+
+Explanation:
+This proves most of the reverse implication. From a projection witness `y`, the graph
+equations show that the selected coordinates of `x` are exactly `y`. The proof also
+rewrites the statement that the second block belongs to `A` into the simpler statement
+`(fun j => y j) ∈ A`.
+=== Lines 334-334 ===
+      rwa [H]
+  exact h_eq.symm ▸ hp
+
+Explanation:
+The reverse implication finishes by rewriting the goal using the equality between the
+selected-coordinate tuple and `y`. Finally, the equality of sets transfers the
+definability of `projBlock m n C` to the original reindexed set.
+
+Explanation (lines 287-334):
+Proves closure under coordinate reindexing. Given a definable set `A ⊆ R^n`, the set of
+points in `R^m` whose selected coordinates via `σ` land in `A` is definable. The proof
+uses products, the definable graph of `σ`, and projection.
+
+=== Lines 335-340 ===
+theorem theorem_vi {n m} {A : Set (Rn R n)} {B : Set (Rn R m)} (hA : M.S n A) (hB : M.S m B) :
+    M.S (n + m) {x : Rn R (n + m) |
+      (fun i : Fin n => x (Fin.castAdd m i)) ∈ A ∧
+      (fun j : Fin m => x (Fin.natAdd n j)) ∈ B} := by
+  exact inter_mem M (right_cylinder_iter_mem M hA) (left_cylinder_iter_mem M hB)
+
+Explanation:
+Theorem vi proves that the product of two definable sets is definable. The first `n` coordinates of `x` must lie in `A`, and the last `m` coordinates must lie in `B`. The proof obtains these two conditions as right and left cylinders, then intersects them.
+
+=== Lines 341-345 ===
+theorem theorem_ix {n m} {A : Set (Rn R (n + m))} (hA : M.S (n + m) A) :
+    M.S n {x : Rn R n | ∃ z : Rn R (n + m), z ∈ A ∧ ∀ i : Fin n, z (Fin.castAdd m i) = x i} := by
+  have hb := block_proj_mem M hA
+  have h_eq : {x : Rn R n | ∃ z : Rn R (n + m), z ∈ A ∧ ∀ i : Fin n, z (Fin.castAdd m i) = x i} = projBlock n m A := by
+
+Explanation:
+This theorem proves a general projection result in a more mathematical form. Instead of
+using the recursive definition `projBlock`, it describes the projection as the set of
+`x` for which there exists a larger tuple `z ∈ A` whose first `n` coordinates are
+exactly `x`.
+=== Lines 346-358 ===
+    ext x
+    rw [mem_projBlock_iff]
+    constructor
+    · rintro ⟨z, hzA, hzx⟩
+      refine ⟨fun k => z (Fin.natAdd n k), ?_⟩
+      have H : (fun (k : Fin (n + m)) => if h : k.1 < n then x ⟨k.1, h⟩ else z (Fin.natAdd n ⟨k.1 - n, by omega⟩)) = z := by
+        funext k
+        by_cases hk : k.1 < n
+        · have := hzx ⟨k.1, hk⟩
+          simp [hk]
+          have h1 : z (Fin.castAdd m ⟨k.1, hk⟩) = z k := by congr 1; ext; simp [Fin.castAdd]
+          rw [h1] at this
+          exact this.symm
+
+Explanation:
+This proves the first direction of the set equality. Given a full tuple `z ∈ A` whose
+first block is `x`, the hidden projection witness is chosen to be the remaining
+coordinates of `z`. The function equality `H` proves that recombining `x` with those
+remaining coordinates reconstructs `z`.
+=== Lines 359-363 ===
+        · simp only [hk, dif_neg, not_false_eq_true]
+          congr 1; ext; simp [Fin.natAdd]; omega
+      change _ ∈ A
+      rwa [H]
+
+Explanation:
+This completes the first direction by handling the coordinates not in the first `n`
+positions. Once the reconstructed tuple is shown equal to `z`, membership in `A` follows
+from `hzA`.
+=== Lines 364-368 ===
+    · rintro ⟨y, hy⟩
+      refine ⟨fun k => if hk : k.1 < n then x ⟨k.1, hk⟩ else y ⟨k.1 - n, by omega⟩, hy, ?_⟩
+      intro i
+      have hk : (Fin.castAdd m i).1 < n := i.isLt
+      simp [hk, Fin.castAdd]
+  exact h_eq.symm ▸ hb
+
+Explanation:
+This proves the reverse direction. Given a block-projection witness `y`, the proof
+builds the full tuple by concatenating `x` and `y`; this tuple lies in `A` by `hy`, and
+its first `n` coordinates are visibly `x`. The final line transfers definability from
+`projBlock n m A` to the stated existential projection set.
+
+Explanation (lines 341-368):
+Proves the stated definability result for this theorem by using the relevant closure property of the o-minimal structure.
+
+=== Lines 369-372 ===
+theorem theorem_viii {n m} {A : Set (Rn R n)} (σ : Fin n → Fin m) (hA : M.S n A) :
+    M.S m {x : Rn R m | (fun i : Fin n => x (σ i)) ∈ A} := by
+  exact reindex_mem M σ hA
+
+Explanation:
+Theorem viii proves closure under coordinate reindexing. Given a map `σ : Fin n → Fin m`, it says the preimage of a definable set `A ⊆ R^n` under the coordinate-selection map `x ↦ (x (σ i))` is definable in `R^m`.
+
+=== Lines 373-375 ===
+theorem theorem_vii {n} {A : Set (Rn R (n + 1))} (hA : M.S (n + 1) A) :
+    M.S n {x : Rn R n | ∃ y : R, (Fin.snoc x y) ∈ A} := by
+
+Explanation:
+States the ordinary projection theorem. If A ⊆ R^(n+1) is definable, then its projection onto the first n coordinates is definable.
+=== Lines 376-376 ===
+  have h := theorem_ix M (m := 1) hA
+
+Explanation:
+Applies theorem_ix with m = 1. This already proves the desired result, but using a more general existential-tuple formulation.
+=== Lines 377-378 ===
+  have h_eq : {x : Rn R n | ∃ z : Rn R (n + 1), z ∈ A ∧ ∀ i : Fin n, z (Fin.castAdd 1 i) = x i} =
+              {x : Rn R n | ∃ y : R, (Fin.snoc x y) ∈ A} := by
+
+Explanation:
+Introduces h_eq, whose purpose is to prove that theorem_ix's formulation is exactly the same set as the usual Fin.snoc formulation.
+=== Lines 379-381 ===
+    ext x
+    simp only [mem_setOf_eq]
+    constructor
+
+Explanation:
+Uses extensionality (ext) to prove equality of the two sets by checking membership of an arbitrary point x. constructor splits the proof into the two implications.
+=== Lines 382-395 ===
+    · rintro ⟨z, hzA, hzx⟩
+      refine ⟨z (Fin.last n), ?_⟩
+      have H : Fin.snoc x (z (Fin.last n)) = z := by
+        funext k
+        by_cases hk : k.1 < n
+        · have := hzx ⟨k.1, hk⟩
+          have h1 : z (Fin.castAdd 1 ⟨k.1, hk⟩) = z k := by congr 1; ext; simp [Fin.castAdd]
+          rw [h1] at this
+          simp [Fin.snoc, hk]
+          exact this.symm
+        · have hk_eq : k.1 = n := by omega
+          simp only [Fin.snoc, hk, dif_neg, not_false_eq_true]
+          congr 1; ext; omega
+      change _ ∈ A
+      rwa [H]
+
+Explanation:
+Forward implication. Starting from a tuple z ∈ A whose first n coordinates equal x, the proof chooses the last coordinate of z as the witness y. It then proves Fin.snoc x (z (Fin.last n)) = z by checking every coordinate separately, allowing membership in A to be rewritten.
+=== Lines 396-402 ===
+    · rintro ⟨y, hy⟩
+      refine ⟨Fin.snoc x y, hy, ?_⟩
+      intro i
+      have hk : (Fin.castAdd 1 i).1 < n := i.isLt
+      simp [Fin.castAdd, hk, Fin.snoc]
+      congr 1; ext; rfl
+  exact h_eq ▸ h
+
+Explanation:
+Reverse implication. Assuming Fin.snoc x y ∈ A, the proof simply chooses z = Fin.snoc x y and verifies that its first n coordinates are exactly x.
+Uses h_eq to rewrite theorem_ix into the desired theorem, completing the proof.
+
+Explanation (lines 373-402):
+Theorem vii proves definability of the ordinary one-coordinate projection. It specializes theorem ix to `m = 1`, then proves that the existential tuple formulation from theorem ix is the same as the usual statement `∃ y, Fin.snoc x y ∈ A`.
+
+
+=== Lines 403-403 ===
+end OMinimal
+
+Explanation:
+Closes the `OMinimal` namespace, ending the formal development.
